@@ -2,6 +2,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import ytDlpExec from "yt-dlp-exec";
 
 function runCommand(command: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -44,20 +45,17 @@ export async function transcribeVideoWithLocalWhisper(
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), "yt-study-audio-"));
 
   try {
-    console.log(`🎧 Downloading audio for ${videoId} via yt-dlp`);
+    console.log(`🎧 Downloading audio for ${videoId} via yt-dlp-exec`);
     const outputTemplate = path.join(tmpDir, "audio.%(ext)s");
 
-    await runCommand("yt-dlp", [
-      "--no-playlist",
-      "-x",
-      "--audio-format",
-      "wav",
-      "--audio-quality",
-      "0",
-      "-o",
-      outputTemplate,
-      videoUrl,
-    ]);
+    await ytDlpExec(videoUrl, {
+      noPlaylist: true,
+      extractAudio: true,
+      audioFormat: "wav",
+      audioQuality: 0,
+      output: outputTemplate,
+      noWarnings: true,
+    });
 
     const files = await readdir(tmpDir);
     const audioFileName = files.find((fileName) =>
