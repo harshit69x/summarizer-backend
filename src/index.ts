@@ -4,6 +4,21 @@ import cors from "cors";
 import routes from "./routes/index.js";
 import { initializeMongoPersistence } from "./services/persistence.service.js";
 
+import { copyFileSync } from "node:fs";
+import path from "node:path";
+import os from "node:os";
+
+if (process.env.YOUTUBE_COOKIES_FILE) {
+  try {
+    const tmpCookiesPath = path.join(os.tmpdir(), "youtube_cookies_writable.txt");
+    copyFileSync(process.env.YOUTUBE_COOKIES_FILE, tmpCookiesPath);
+    process.env.YOUTUBE_COOKIES_FILE = tmpCookiesPath;
+    console.log(`🍪 Cookies file copied to writable tmp location: ${tmpCookiesPath}`);
+  } catch (error) {
+    console.error("⚠ Failed to copy cookies file to writable location:", error);
+  }
+}
+
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
