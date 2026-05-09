@@ -72,6 +72,32 @@ export interface ProcessedVideoSummary {
   updatedAt: Date;
 }
 
+export interface PersistedUser {
+  _id?: string;
+  uid: string;
+  email: string;
+  displayName: string;
+  summariesCount: number;
+  playlistCount: number;
+  videoCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PersistedSummary {
+  _id?: string;
+  uid: string;
+  url: string;
+  title: string;
+  type: "video" | "playlist";
+  summary: string;
+  keyPoints: string[];
+  keywords: string[];
+  videoCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 let clientPromise: Promise<MongoClient> | null = null;
 
 function getClient(): Promise<MongoClient> {
@@ -118,6 +144,18 @@ async function getProcessedVideosCollection() {
     .collection<PersistedProcessedVideo>("processed_videos");
 }
 
+async function getUsersCollection() {
+  const client = await getClient();
+  const dbName = getDbNameFromUri(process.env.MONGODB_URI || "");
+  return client.db(dbName).collection<PersistedUser>("users");
+}
+
+async function getSummariesCollection() {
+  const client = await getClient();
+  const dbName = getDbNameFromUri(process.env.MONGODB_URI || "");
+  return client.db(dbName).collection<PersistedSummary>("summaries");
+}
+
 export async function initializeMongoPersistence(): Promise<void> {
   if (!process.env.MONGODB_URI) {
     console.warn("⚠ Mongo persistence disabled: MONGODB_URI not set.");
@@ -126,11 +164,27 @@ export async function initializeMongoPersistence(): Promise<void> {
 
   const collection = await getCollection();
   const processedCollection = await getProcessedVideosCollection();
+  const usersCollection = await getUsersCollection();
+  const summariesCollection = await getSummariesCollection();
+
+  // Jobs indices
   await collection.createIndex({ jobId: 1 }, { unique: true });
   await collection.createIndex({ "source.type": 1, "source.url": 1 });
   await collection.createIndex({ updatedAt: -1 });
+
+  // Processed videos indices
   await processedCollection.createIndex({ jobId: 1, order: 1 });
   await processedCollection.createIndex({ jobId: 1, videoId: 1 }, { unique: true });
+
+  // Users indices
+  await usersCollection.createIndex({ uid: 1 }, { unique: true });
+  await usersCollection.createIndex({ email: 1 });
+  await usersCollection.createIndex({ createdAt: -1 });
+
+  // Summaries indices
+  await summariesCollection.createIndex({ uid: 1, createdAt: -1 });
+  await summariesCollection.createIndex({ uid: 1, url: 1 });
+
   console.log("✅ Mongo persistence connected");
 }
 
@@ -284,4 +338,134 @@ export async function listProcessedVideoContents(
 ): Promise<PersistedProcessedVideo[]> {
   const collection = await getProcessedVideosCollection();
   return collection.find({ jobId }).sort({ order: 1 }).toArray();
+}
+
+// ── User Management ────────────────────────────────────────
+
+export async function syncOrCreateUser(userData: {
+  uid: string;
+  email: string;
+  displayName: string;
+  createdAt: Date;
+}): Promise<void> {
+  const collection = await getUsersCollection();
+  await collection.updateOne(
+    { uid: userData.uid },
+    {
+      $set: {
+        email: userData.email,
+        displayName: userData.displayName,
+        updatedAt: new Date(),
+      },
+      $setOnInsert: {
+        uid: userData.uid,
+        email: userData.email,
+        displayName: userData.displayName,
+        summariesCount: 0,
+        playlistCount: 0,
+        videoCount: 0,
+        createdAt: userData.createdAt,
+        updatedAt: new Date(),
+      },
+    },
+    { upsert: true }
+  );
+}
+
+export async function getUserProfile(uid: string): Promise<PersistedUser | null> {
+  const collection = await getUsersCollection();
+  return collection.findOne({ uid });
+}
+
+// ── Summary Management ─────────────────────────────────────
+
+export async function saveSummary(
+  uid: string,
+  summaryData: {
+    url: string;
+    title: string;
+    type: "video" | "playlist";
+    summary: string;
+    keyPoints: string[];
+    keywords: string[];
+    videoCount: number;
+    createdAt: Date;
+  }
+): Promise<string> {
+  const collection = await getSummariesCollection();
+  const result = await collection.insertOne({
+    uid,
+    url: summaryData.url,
+    title: summaryData.title,
+    type: summaryData.type,
+    summary: summaryData.summary,
+    keyPoints: summaryData.keyPoints,
+    keywords: summaryData.keywords,
+    videoCount: summaryData.videoCount,
+    createdAt: summaryData.createdAt,
+    updatedAt: new Date(),
+  });
+
+  // Update user counts
+  const userCollection = await getUsersCollection();
+  const updateField =
+    summaryData.type === "playlist" ? "playlistCount" : "videoCount";
+  await userCollection.updateOne(
+    { uid },
+    {
+      $inc: {
+        summariesCount: 1,
+        [updateField]: 1,
+      },
+    }
+  );
+
+  return result.insertedId.toString();
+}
+
+export async function getUserSummaries(
+  uid: string,
+  limit = 20
+): Promise<PersistedSummary[]> {
+  const collection = await getSummariesCollection();
+  return collection
+    .find({ uid })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .toArray();
+}
+
+export async function deleteSummary(uid: string, summaryId: string): Promise<boolean> {
+  const collection = await getSummariesCollection();
+  const { ObjectId } = await import("mongodb");
+
+  let objectId;
+  try {
+    objectId = new ObjectId(summaryId);
+  } catch {
+    return false;
+  }
+
+  const summary = await collection.findOne({ _id: objectId, uid });
+  if (!summary) {
+    return false;
+  }
+
+  await collection.deleteOne({ _id: objectId });
+
+  // Update user counts
+  const userCollection = await getUsersCollection();
+  const updateField =
+    summary.type === "playlist" ? "playlistCount" : "videoCount";
+  await userCollection.updateOne(
+    { uid },
+    {
+      $inc: {
+        summariesCount: -1,
+        [updateField]: -1,
+      },
+    }
+  );
+
+  return true;
 }
