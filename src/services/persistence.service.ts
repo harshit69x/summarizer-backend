@@ -1,4 +1,4 @@
-import { MongoClient, ServerApiVersion } from "mongodb";
+import { MongoClient, ServerApiVersion, ObjectId } from "mongodb";
 
 export interface PersistedJobData {
   jobId: string;
@@ -73,7 +73,7 @@ export interface ProcessedVideoSummary {
 }
 
 export interface PersistedUser {
-  _id?: string;
+  _id?: ObjectId | string;
   uid: string;
   email: string;
   displayName: string;
@@ -85,7 +85,7 @@ export interface PersistedUser {
 }
 
 export interface PersistedSummary {
-  _id?: string;
+  _id?: ObjectId | string;
   uid: string;
   url: string;
   title: string;
