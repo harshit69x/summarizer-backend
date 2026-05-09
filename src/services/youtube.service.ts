@@ -1,4 +1,4 @@
-import ytDlpExec from "yt-dlp-exec";
+import { ytDlp } from "./yt-dlp-client.js";
 import ytpl from "ytpl";
 
 export interface VideoInfo {
@@ -46,7 +46,7 @@ export async function getPlaylistVideos(
     }
     try {
       console.log("📚 Trying yt-dlp JSON enumeration for playlist entries...");
-      const playlistData = (await ytDlpExec(normalizedUrl, {
+      const playlistData = (await ytDlp(normalizedUrl, {
         dumpSingleJson: true,
         flatPlaylist: true,
         noWarnings: true,
