@@ -41,7 +41,9 @@ function runCommand(command: string, args: string[]): Promise<string> {
 export async function transcribeVideoWithLocalWhisper(
   videoId: string
 ): Promise<string> {
-  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const videoUrl = videoId.startsWith("http") 
+    ? videoId 
+    : `https://www.youtube.com/watch?v=${videoId}`;
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), "yt-study-audio-"));
 
   try {
