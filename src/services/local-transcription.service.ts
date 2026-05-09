@@ -41,18 +41,11 @@ function runCommand(command: string, args: string[]): Promise<string> {
 export async function transcribeVideoWithLocalWhisper(
   videoId: string
 ): Promise<string> {
-  // Extract just the video ID if a full URL is passed
-  let id = videoId;
-  const urlMatch = videoId.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\n?#]+)/);
-  if (urlMatch) {
-    id = urlMatch[1];
-  }
-
-  const videoUrl = `https://www.youtube.com/watch?v=${id}`;
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), "yt-study-audio-"));
 
   try {
-    console.log(`🎧 Downloading audio for ${id} via yt-dlp-exec`);
+    console.log(`🎧 Downloading audio for ${videoId} via yt-dlp-exec`);
     const outputTemplate = path.join(tmpDir, "audio.%(ext)s");
 
     await ytDlpExec(videoUrl, {
@@ -62,6 +55,7 @@ export async function transcribeVideoWithLocalWhisper(
       audioQuality: 0,
       output: outputTemplate,
       noWarnings: true,
+      ...(process.env.YOUTUBE_COOKIES_FILE ? { cookies: process.env.YOUTUBE_COOKIES_FILE } : {})
     });
 
     const files = await readdir(tmpDir);
@@ -79,7 +73,7 @@ export async function transcribeVideoWithLocalWhisper(
     const whisperModel = process.env.WHISPER_MODEL || "small";
 
     console.log(
-      `🎧 Audio downloaded for ${id}; transcribing with Faster-Whisper model=${whisperModel}`
+      `🎧 Audio downloaded for ${videoId}; transcribing with Faster-Whisper model=${whisperModel}`
     );
 
     const args = [scriptPath, "--audio", audioPath, "--model", whisperModel];
@@ -93,7 +87,7 @@ export async function transcribeVideoWithLocalWhisper(
       throw new Error("Local transcription returned empty output");
     }
 
-    console.log(`🎧 Local transcription output received for ${id}`);
+    console.log(`🎧 Local transcription output received for ${videoId}`);
 
     return transcript;
   } catch (error) {

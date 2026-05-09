@@ -51,6 +51,7 @@ export async function getPlaylistVideos(
         flatPlaylist: true,
         noWarnings: true,
         playlistReverse: false,
+        ...(process.env.YOUTUBE_COOKIES_FILE ? { cookies: process.env.YOUTUBE_COOKIES_FILE } : {})
       })) as {
         title?: string;
         entries?: PlaylistEntry[];
