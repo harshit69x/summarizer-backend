@@ -52,6 +52,7 @@ export async function transcribeVideoWithLocalWhisper(
 
     await ytDlpExec(videoUrl, {
       noPlaylist: true,
+      format: "bestaudio/best",
       extractAudio: true,
       audioFormat: "wav",
       audioQuality: 0,
