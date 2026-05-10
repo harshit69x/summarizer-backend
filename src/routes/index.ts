@@ -29,6 +29,7 @@ router.get("/processed-videos/:jobId/:videoId", getProcessedVideoContentControll
 
 // ── User Management Routes ─────────────────────────────────
 router.post("/users/sync", syncUserController);
+// (auth.register route removed — backend has no Firebase admin integration)
 router.get("/users/:uid/profile", getUserProfileController);
 router.post("/summaries", saveSummaryController);
 router.get("/summaries", getUserSummariesController);

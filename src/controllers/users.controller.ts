@@ -68,27 +68,39 @@ export async function saveSummaryController(req: Request, res: Response): Promis
     }
 
     if (!url || !title || !type || !summary) {
+      console.warn(`⚠ saveSummary rejected: missing fields. url=${!!url} title=${!!title} type=${!!type} summary=${!!summary} (summary length: ${summary?.length || 0})`);
       res.status(400).json({
         error: "url, title, type, and summary are required in request body.",
       });
       return;
     }
 
+    // Normalize keyPoints/keywords: accept both string and array from clients
+    const normalizeToArray = (value: unknown): string[] => {
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.split("\n").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+      }
+      return [];
+    };
+
     const summaryId = await saveSummary(uid, {
       url,
       title,
       type,
       summary,
-      keyPoints: keyPoints || [],
-      keywords: keywords || [],
+      keyPoints: normalizeToArray(keyPoints),
+      keywords: normalizeToArray(keywords),
       videoCount: videoCount || 0,
       createdAt: new Date(),
     });
 
+    console.log(`✅ Summary saved for user ${uid}: id=${summaryId}`);
     res.status(201).json({ summaryId, message: "Summary saved successfully." });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to save summary.";
+    console.error(`❌ saveSummary error for user ${req.get("x-user-uid")}:`, message);
     res.status(500).json({ error: message });
   }
 }
@@ -108,7 +120,14 @@ export async function getUserSummariesController(
 
     const summaries = await getUserSummaries(uid, limit);
 
-    res.json({ summaries });
+    // Normalize keyPoints/keywords to strings for the Android client
+    const normalized = summaries.map((s) => ({
+      ...s,
+      keyPoints: Array.isArray(s.keyPoints) ? s.keyPoints.join("\n") : (s.keyPoints || ""),
+      keywords: Array.isArray(s.keywords) ? s.keywords.join("\n") : (s.keywords || ""),
+    }));
+
+    res.json({ summaries: normalized });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to fetch user summaries.";

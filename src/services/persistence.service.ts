@@ -73,7 +73,7 @@ export interface ProcessedVideoSummary {
 }
 
 export interface PersistedUser {
-  _id?: ObjectId | string;
+  _id?: ObjectId;
   uid: string;
   email: string;
   displayName: string;
@@ -85,7 +85,7 @@ export interface PersistedUser {
 }
 
 export interface PersistedSummary {
-  _id?: ObjectId | string;
+  _id?: ObjectId;
   uid: string;
   url: string;
   title: string;
@@ -359,13 +359,10 @@ export async function syncOrCreateUser(userData: {
       },
       $setOnInsert: {
         uid: userData.uid,
-        email: userData.email,
-        displayName: userData.displayName,
         summariesCount: 0,
         playlistCount: 0,
         videoCount: 0,
         createdAt: userData.createdAt,
-        updatedAt: new Date(),
       },
     },
     { upsert: true }

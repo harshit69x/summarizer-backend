@@ -35,8 +35,19 @@ void initializeMongoPersistence().catch((error) => {
   console.warn("⚠ Mongo persistence initialization failed:", error);
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Backend server running on http://0.0.0.0:${PORT}`);
+
+  // Print LAN addresses so Android devices on the same Wi-Fi can connect
+  const nets = os.networkInterfaces();
+  for (const iface of Object.values(nets)) {
+    for (const info of iface || []) {
+      if (info.family === "IPv4" && !info.internal) {
+        console.log(`   📱 Android access: http://${info.address}:${PORT}`);
+      }
+    }
+  }
+
   console.log("   LLM Provider: OpenAI");
   console.log(
     `   Local Transcription Fallback: ${process.env.ENABLE_LOCAL_TRANSCRIBE === "true" ? "enabled" : "disabled"}`
